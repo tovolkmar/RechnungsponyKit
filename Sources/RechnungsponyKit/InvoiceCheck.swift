@@ -35,6 +35,11 @@ public enum InvoiceCheck {
             if blank(s.street) || blank(s.postalCode) || blank(s.city) { error("Absender: Die Anschrift ist unvollständig.") }
             if !looksLikeEmail(s.email) { error("Absender: Es fehlt eine gültige E-Mail-Adresse (wird als elektronische Adresse benötigt).") }
             if blank(s.vatID) && blank(s.taxNumber) { error("Absender: USt-IdNr. oder Steuernummer fehlt.") }
+            switch VATIDCheck.check(s.vatID ?? "") {
+            case .invalidFormat: error("Absender: Die USt-IdNr. hat nicht das Format DE plus 9 Ziffern.")
+            case .invalidChecksum: warn("Absender: Die Prüfziffer der USt-IdNr. stimmt nicht, vermutlich ein Tippfehler.")
+            default: break
+            }
             if blank(invoice.iban) {
                 error("Bankverbindung: IBAN fehlt.")
             } else if !isValidIBAN(invoice.iban) {
@@ -47,6 +52,11 @@ public enum InvoiceCheck {
             if b.countryCode.trimmingCharacters(in: .whitespaces).count != 2 { error("Kunde: Der Ländercode muss zwei Buchstaben haben, z. B. DE.") }
             if !looksLikeEmail(b.electronicAddress ?? "") && !looksLikeEmail(b.email) {
                 error("Kunde: Es fehlt eine gültige E-Mail-Adresse (wird als elektronische Adresse benötigt).")
+            }
+            switch VATIDCheck.check(b.vatID ?? "") {
+            case .invalidFormat: error("Kunde: Die USt-IdNr. hat nicht das Format DE plus 9 Ziffern (oder das Länderkürzel fehlt).")
+            case .invalidChecksum: warn("Kunde: Die Prüfziffer der USt-IdNr. stimmt nicht, vermutlich ein Tippfehler.")
+            default: break
             }
             if b.countryCode.uppercased() == "DE", !blank(b.postalCode), b.postalCode.count != 5 {
                 warn("Kunde: Die Postleitzahl hat keine 5 Stellen.")
