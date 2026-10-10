@@ -21,7 +21,7 @@ public enum InvoiceCheck {
     public static func issues(
         for invoice: Invoice,
         isReceivedCredit: Bool = false,
-        today: Date = Date(),
+        today: Date = Date.now,
         calendar: Calendar = .current
     ) -> [InvoiceIssue] {
         var out: [InvoiceIssue] = []

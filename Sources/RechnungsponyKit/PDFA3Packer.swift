@@ -41,7 +41,7 @@ public struct PDFA3Packer {
             author: String,
             producer: String = "InvoiceKit Spike",
             creatorTool: String = "InvoiceKit Spike",
-            date: Date = Date(),
+            date: Date = Date.now,
             xmlFileName: String = "factur-x.xml",
             conformanceLevel: String = "EN 16931",
             attachmentDescription: String = "Factur-X Invoice",
@@ -186,7 +186,7 @@ public struct PDFA3Packer {
                 fileName = "\(base)-\(index + 1)" + (ext.isEmpty ? "" : ".\(ext)")
             }
             usedNames.insert(fileName)
-            let subtype = attachment.mimeType.replacingOccurrences(of: "/", with: "#2F")
+            let subtype = attachment.mimeType.replacing("/", with: "#2F")
             newOffsets[embeddedID] = out.count
             out.append(streamObject(
                 id: embeddedID,
@@ -247,9 +247,9 @@ public struct PDFA3Packer {
         let isPlain = s.unicodeScalars.allSatisfy { $0.value >= 0x20 && $0.value < 0x7F }
         if isPlain {
             let escaped = s
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "(", with: "\\(")
-                .replacingOccurrences(of: ")", with: "\\)")
+                .replacing("\\", with: "\\\\")
+                .replacing("(", with: "\\(")
+                .replacing(")", with: "\\)")
             return "(\(escaped))"
         }
         var hex = "FEFF"

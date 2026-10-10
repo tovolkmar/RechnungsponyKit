@@ -177,7 +177,7 @@ public struct CIIWriter {
         x.open("ram:SpecifiedTradeSettlementPaymentMeans")
         x.leaf("ram:TypeCode", "58") // SEPA-Überweisung
         x.open("ram:PayeePartyCreditorFinancialAccount")
-        x.leaf("ram:IBANID", invoice.iban.replacingOccurrences(of: " ", with: ""))
+        x.leaf("ram:IBANID", invoice.iban.replacing(" ", with: ""))
         if let name = nonEmpty(invoice.accountName) { x.leaf("ram:AccountName", name) }
         x.close("ram:PayeePartyCreditorFinancialAccount")
         if let bic = invoice.bic, !bic.isEmpty {

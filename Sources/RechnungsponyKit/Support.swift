@@ -124,7 +124,7 @@ enum DateFmt {
         components.month = month
         components.day = day
         components.hour = 12
-        return calendar.date(from: components) ?? Date()
+        return calendar.date(from: components) ?? Date.now
     }
 }
 
