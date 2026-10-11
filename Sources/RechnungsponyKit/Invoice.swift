@@ -109,6 +109,13 @@ public struct Invoice: Codable, Equatable {
     public var projectName: String?
     /// Zahlungsziel in Tagen, nur für die Anzeige im PDF
     public var paymentDueDays: Int?
+    /// Nummer der stornierten Rechnung (BT-25); gesetzt ⇒ Stornorechnung (Typ 381)
+    public var cancelsNumber: String?
+    /// Rechnungsdatum der stornierten Rechnung (BT-26)
+    public var cancelsDate: Date?
+
+    /// Stornorechnung (Gutschrift zu einer eigenen Rechnung, positive Beträge)
+    public var isCancellation: Bool { cancelsNumber != nil }
 
     public var note: String? { notes.first }
 
@@ -134,7 +141,9 @@ public struct Invoice: Codable, Equatable {
         contractNumber: String? = nil,
         projectID: String? = nil,
         projectName: String? = nil,
-        paymentDueDays: Int? = nil
+        paymentDueDays: Int? = nil,
+        cancelsNumber: String? = nil,
+        cancelsDate: Date? = nil
     ) {
         self.number = number
         self.issueDate = issueDate
@@ -157,6 +166,8 @@ public struct Invoice: Codable, Equatable {
         self.projectID = projectID
         self.projectName = projectName
         self.paymentDueDays = paymentDueDays
+        self.cancelsNumber = cancelsNumber
+        self.cancelsDate = cancelsDate
     }
 
     public var netTotal: Decimal {

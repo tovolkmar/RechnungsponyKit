@@ -71,7 +71,7 @@ public struct CIIWriter {
         // Kopf: Nummer, Typ (380 = Handelsrechnung), Datum
         x.open("rsm:ExchangedDocument")
         x.leaf("ram:ID", invoice.number)
-        x.leaf("ram:TypeCode", "380")
+        x.leaf("ram:TypeCode", invoice.isCancellation ? "381" : "380")
         x.open("ram:IssueDateTime")
         x.leaf("udt:DateTimeString", DateFmt.ymd(invoice.issueDate), attrs: ["format=\"102\""])
         x.close("ram:IssueDateTime")
@@ -220,6 +220,17 @@ public struct CIIWriter {
         x.leaf("ram:GrandTotalAmount", Format.xmlAmount(invoice.grossTotal))
         x.leaf("ram:DuePayableAmount", Format.xmlAmount(invoice.grossTotal))
         x.close("ram:SpecifiedTradeSettlementHeaderMonetarySummation")
+
+        if let cancelled = invoice.cancelsNumber {
+            x.open("ram:InvoiceReferencedDocument")
+            x.leaf("ram:IssuerAssignedID", cancelled)
+            if let date = invoice.cancelsDate {
+                x.open("ram:FormattedIssueDateTime")
+                x.leaf("qdt:DateTimeString", DateFmt.ymd(date), attrs: ["format=\"102\""])
+                x.close("ram:FormattedIssueDateTime")
+            }
+            x.close("ram:InvoiceReferencedDocument")
+        }
 
         x.close("ram:ApplicableHeaderTradeSettlement")
         x.close("rsm:SupplyChainTradeTransaction")

@@ -25,7 +25,7 @@ public struct InvoicePDFRenderer {
         guard let consumer = CGDataConsumer(data: data as CFMutableData) else { throw RenderError.contextFailed }
         var mediaBox = CGRect(x: 0, y: 0, width: pageWidth, height: pageHeight)
         let info: [CFString: Any] = [
-            kCGPDFContextTitle: "Rechnung \(invoice.number)",
+            kCGPDFContextTitle: "\(invoice.isCancellation ? "Stornorechnung" : "Rechnung") \(invoice.number)",
             kCGPDFContextAuthor: invoice.seller.name,
             kCGPDFContextCreator: "InvoiceKit Spike"
         ]
@@ -61,7 +61,7 @@ public struct InvoicePDFRenderer {
         text(ctx, "\(invoice.buyer.postalCode) \(invoice.buyer.city)", x: left, top: 200, size: 11)
 
         // Titel und Eckdaten
-        text(ctx, "Rechnung", x: left, top: 260, size: 20, bold: true)
+        text(ctx, invoice.isCancellation ? "Stornorechnung" : "Rechnung", x: left, top: 260, size: 20, bold: true)
         let metaLabelX: CGFloat = 330
         let meta: [(String, String)] = [
             ("Rechnungsnummer", invoice.number),
@@ -69,7 +69,7 @@ public struct InvoicePDFRenderer {
             ("Leistungszeitraum", "\(DateFmt.german(invoice.serviceStart)) – \(DateFmt.german(invoice.serviceEnd))"),
             ("Zahlbar bis", DateFmt.german(invoice.dueDate)),
             ("Ihre Referenz", invoice.buyerReference ?? "–")
-        ]
+        ] + (invoice.cancelsNumber.map { [("Storno zu", $0)] } ?? [])
         var metaTop: CGFloat = 244
         for (label, value) in meta {
             text(ctx, label, x: metaLabelX, top: metaTop, size: 9, color: gray)

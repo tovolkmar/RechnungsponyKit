@@ -46,6 +46,25 @@ final class InvoiceKitTests: XCTestCase {
         }
     }
 
+    func testCancellationWritesTypeCode381AndReference() throws {
+        var invoice = SampleInvoice.make()
+        XCTAssertFalse(invoice.isCancellation)
+        XCTAssertTrue(try CIIWriter().xml(for: invoice, profile: .zugferdEN16931).contains("<ram:TypeCode>380</ram:TypeCode>"))
+        XCTAssertFalse(try CIIWriter().xml(for: invoice, profile: .zugferdEN16931).contains("InvoiceReferencedDocument"))
+
+        invoice.cancelsNumber = "RE-1"
+        invoice.cancelsDate = invoice.issueDate
+        let xml = try CIIWriter().xml(for: invoice, profile: .zugferdEN16931)
+        XCTAssertTrue(xml.contains("<ram:TypeCode>381</ram:TypeCode>"))
+        XCTAssertTrue(xml.contains("<ram:IssuerAssignedID>RE-1</ram:IssuerAssignedID>"))
+        XCTAssertTrue(xml.contains("<ram:FormattedIssueDateTime>"))
+        XCTAssertTrue(XMLParser(data: Data(xml.utf8)).parse())
+        // Positive Beträge, Verweis steht nach der Summenbildung
+        XCTAssertTrue(xml.contains("<ram:DuePayableAmount>1904.00</ram:DuePayableAmount>"))
+        let summation = xml.range(of: "</ram:SpecifiedTradeSettlementHeaderMonetarySummation>")!
+        XCTAssertLessThan(summation.upperBound, xml.range(of: "<ram:InvoiceReferencedDocument>")!.lowerBound)
+    }
+
     func testXRechnungNeedsBuyerReference() {
         var invoice = SampleInvoice.make()
         invoice.buyerReference = nil
