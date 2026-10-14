@@ -17,7 +17,7 @@ public enum EInvoiceReaderError: Error, LocalizedError {
 }
 
 /// Ergebnis des Einlesens einer E-Rechnung.
-public struct ParsedEInvoice {
+public struct ParsedEInvoice: Sendable {
     public var invoice: Invoice
     /// UNTDID 1001, z. B. "380" Rechnung, "381" Gutschrift
     public var typeCode: String
@@ -32,7 +32,7 @@ public struct ParsedEInvoice {
 }
 
 /// Eine eingelesene Datei samt Originalen, die unverändert archiviert werden.
-public struct EInvoiceDocument {
+public struct EInvoiceDocument: Sendable {
     public var parsed: ParsedEInvoice
     public var xml: Data
     public var xmlFileName: String

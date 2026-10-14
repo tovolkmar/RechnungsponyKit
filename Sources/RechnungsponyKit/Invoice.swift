@@ -1,7 +1,7 @@
 import Foundation
 
 /// Rechnungssteller oder -empfänger.
-public struct Party: Codable, Equatable {
+public struct Party: Codable, Equatable, Sendable {
     public var name: String
     public var street: String
     public var postalCode: String
@@ -47,7 +47,7 @@ public struct Party: Codable, Equatable {
     }
 }
 
-public struct LineItem: Codable, Equatable {
+public struct LineItem: Codable, Equatable, Sendable {
     public var name: String
     public var quantity: Decimal
     /// UN/ECE Recommendation 20, z. B. "HUR" (Stunde), "DAY" (Tag), "C62" (Stück)
@@ -74,13 +74,13 @@ public struct LineItem: Codable, Equatable {
     public var lineTotal: Decimal { (quantity * unitPrice).rounded2() }
 }
 
-public struct VATBreakdown {
+public struct VATBreakdown: Sendable {
     public let rate: Decimal
     public let basis: Decimal
     public let tax: Decimal
 }
 
-public struct Invoice: Codable, Equatable {
+public struct Invoice: Codable, Equatable, Sendable {
     public var number: String
     public var issueDate: Date
     public var serviceStart: Date
