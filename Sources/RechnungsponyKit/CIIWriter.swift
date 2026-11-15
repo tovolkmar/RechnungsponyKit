@@ -80,6 +80,14 @@ public struct CIIWriter {
             x.leaf("ram:Content", note)
             x.close("ram:IncludedNote")
         }
+        // Register- und Rechtsangaben des Verkäufers (§ 14 UStG) zusätzlich als Hinweis mit Betreffcode REG (BT-21),
+        // wie es deutsche Rechnungsprogramme tun. Dieselbe Angabe steht als BT-33 am Verkäufer.
+        if let legal = nonEmpty(invoice.seller.legalNote) {
+            x.open("ram:IncludedNote")
+            x.leaf("ram:Content", legal)
+            x.leaf("ram:SubjectCode", "REG")
+            x.close("ram:IncludedNote")
+        }
         x.close("rsm:ExchangedDocument")
 
         x.open("rsm:SupplyChainTradeTransaction")
@@ -111,9 +119,20 @@ public struct CIIWriter {
             x.open("ram:SpecifiedLineTradeSettlement")
             x.open("ram:ApplicableTradeTax")
             x.leaf("ram:TypeCode", "VAT")
-            x.leaf("ram:CategoryCode", "S")
-            x.leaf("ram:RateApplicablePercent", Format.xmlPercent(item.vatRate))
+            x.leaf("ram:CategoryCode", item.taxCategory.rawValue)
+            x.leaf("ram:RateApplicablePercent", Format.xmlPercent(item.effectiveVATRate))
             x.close("ram:ApplicableTradeTax")
+            if let period = item.period {
+                // BG-26: Leistungszeitraum der Position, steht nach der Steuer und vor der Positionssumme
+                x.open("ram:BillingSpecifiedPeriod")
+                x.open("ram:StartDateTime")
+                x.leaf("udt:DateTimeString", DateFmt.ymd(period.start), attrs: ["format=\"102\""])
+                x.close("ram:StartDateTime")
+                x.open("ram:EndDateTime")
+                x.leaf("udt:DateTimeString", DateFmt.ymd(period.end), attrs: ["format=\"102\""])
+                x.close("ram:EndDateTime")
+                x.close("ram:BillingSpecifiedPeriod")
+            }
             x.open("ram:SpecifiedTradeSettlementLineMonetarySummation")
             x.leaf("ram:LineTotalAmount", Format.xmlAmount(item.lineTotal))
             x.close("ram:SpecifiedTradeSettlementLineMonetarySummation")
@@ -162,6 +181,18 @@ public struct CIIWriter {
 
         // Lieferung: Leistungsdatum (Ende des Leistungszeitraums)
         x.open("ram:ApplicableHeaderTradeDelivery")
+        if let ship = invoice.shipTo?.orNil {
+            // BG-13: Lieferinformation, steht in der CII-Reihenfolge vor dem Lieferereignis
+            x.open("ram:ShipToTradeParty")
+            if let name = nonEmpty(ship.name) { x.leaf("ram:Name", name) }
+            x.open("ram:PostalTradeAddress")
+            x.leaf("ram:PostcodeCode", ship.postalCode)
+            x.leaf("ram:LineOne", ship.street)
+            x.leaf("ram:CityName", ship.city)
+            x.leaf("ram:CountryID", ship.countryCode)
+            x.close("ram:PostalTradeAddress")
+            x.close("ram:ShipToTradeParty")
+        }
         x.open("ram:ActualDeliverySupplyChainEvent")
         x.open("ram:OccurrenceDateTime")
         x.leaf("udt:DateTimeString", DateFmt.ymd(invoice.serviceEnd), attrs: ["format=\"102\""])
@@ -171,19 +202,36 @@ public struct CIIWriter {
 
         // Abrechnung
         x.open("ram:ApplicableHeaderTradeSettlement")
+        if let debit = invoice.directDebit {
+            x.leaf("ram:CreditorReferenceID", debit.creditorID)
+        }
         x.leaf("ram:PaymentReference", invoice.number)
         x.leaf("ram:InvoiceCurrencyCode", invoice.currency)
 
         x.open("ram:SpecifiedTradeSettlementPaymentMeans")
-        x.leaf("ram:TypeCode", "58") // SEPA-Überweisung
-        x.open("ram:PayeePartyCreditorFinancialAccount")
-        x.leaf("ram:IBANID", invoice.iban.replacing(" ", with: ""))
-        if let name = nonEmpty(invoice.accountName) { x.leaf("ram:AccountName", name) }
-        x.close("ram:PayeePartyCreditorFinancialAccount")
-        if let bic = invoice.bic, !bic.isEmpty {
-            x.open("ram:PayeeSpecifiedCreditorFinancialInstitution")
-            x.leaf("ram:BICID", bic)
-            x.close("ram:PayeeSpecifiedCreditorFinancialInstitution")
+        if let debit = invoice.directDebit {
+            // BT-81 Zahlungsart 59 = SEPA-Lastschrift. Gezahlt wird vom Konto des Käufers (BG-19); ein Konto des
+            // Zahlungsempfängers (BG-17) gehört nur zur Überweisung.
+            x.leaf("ram:TypeCode", "59")
+            x.leaf("ram:Information", "SEPA-Lastschrift")
+            x.open("ram:PayerPartyDebtorFinancialAccount")
+            x.leaf("ram:IBANID", IBANFormat.normalize(debit.debtorIBAN))
+            x.close("ram:PayerPartyDebtorFinancialAccount")
+        } else {
+            // BT-81 Zahlungsart nach UNTDID 4461: 58 = SEPA-Überweisung (SEPA credit transfer), 30 = Überweisung allgemein
+            // (credit transfer), 31 = Lastschrift-Überweisung (debit transfer, passt nicht zu einem Konto des Zahlungsempfängers
+            // mit Zahlung durch den Käufer). Die Rechnung nennt ein IBAN-Konto im SEPA-Raum, daher 58; das ist die Empfehlung
+            // von ZUGFeRD/Factur-X und von XRechnung. Mustang (ZUGFeRD 2.5, XRechnung 3.0) hat dazu keinen Hinweis.
+            x.leaf("ram:TypeCode", "58")
+            x.open("ram:PayeePartyCreditorFinancialAccount")
+            x.leaf("ram:IBANID", invoice.iban.replacing(" ", with: ""))
+            if let name = nonEmpty(invoice.accountName) { x.leaf("ram:AccountName", name) }
+            x.close("ram:PayeePartyCreditorFinancialAccount")
+            if let bic = invoice.bic, !bic.isEmpty {
+                x.open("ram:PayeeSpecifiedCreditorFinancialInstitution")
+                x.leaf("ram:BICID", bic)
+                x.close("ram:PayeeSpecifiedCreditorFinancialInstitution")
+            }
         }
         x.close("ram:SpecifiedTradeSettlementPaymentMeans")
 
@@ -191,8 +239,9 @@ public struct CIIWriter {
             x.open("ram:ApplicableTradeTax")
             x.leaf("ram:CalculatedAmount", Format.xmlAmount(line.tax))
             x.leaf("ram:TypeCode", "VAT")
+            if let reason = line.exemptionReason { x.leaf("ram:ExemptionReason", reason) }
             x.leaf("ram:BasisAmount", Format.xmlAmount(line.basis))
-            x.leaf("ram:CategoryCode", "S")
+            x.leaf("ram:CategoryCode", line.category.rawValue)
             x.leaf("ram:RateApplicablePercent", Format.xmlPercent(line.rate))
             x.close("ram:ApplicableTradeTax")
         }
@@ -211,6 +260,9 @@ public struct CIIWriter {
         x.open("ram:DueDateDateTime")
         x.leaf("udt:DateTimeString", DateFmt.ymd(invoice.dueDate), attrs: ["format=\"102\""])
         x.close("ram:DueDateDateTime")
+        if let debit = invoice.directDebit {
+            x.leaf("ram:DirectDebitMandateID", debit.mandateID)
+        }
         x.close("ram:SpecifiedTradePaymentTerms")
 
         x.open("ram:SpecifiedTradeSettlementHeaderMonetarySummation")
@@ -295,8 +347,21 @@ public struct CIIWriter {
     private func validate(_ invoice: Invoice, profile: EInvoiceProfile) throws {
         if invoice.items.isEmpty { throw InvoiceError.missingField("Rechnungspositionen") }
         if nonEmpty(invoice.seller.vatID) == nil && nonEmpty(invoice.seller.taxNumber) == nil { throw InvoiceError.unsupported("Verkäufer ohne USt-IdNr. (Steuernummer, Kleinunternehmer)") }
-        if invoice.items.contains(where: { $0.vatRate <= 0 }) {
-            throw InvoiceError.unsupported("Steuersatz 0 % (andere Steuerkategorien als S)")
+        if let debit = invoice.directDebit {
+            // Lastschrift braucht das Konto des Käufers (BT-91), die Mandatsreferenz (BT-89) und die Gläubiger-ID (BT-90)
+            if nonEmpty(debit.debtorIBAN) == nil { throw InvoiceError.missingField("IBAN des Käufers für die Lastschrift (BT-91)") }
+            if nonEmpty(debit.mandateID) == nil { throw InvoiceError.missingField("Mandatsreferenz (BT-89)") }
+            if nonEmpty(debit.creditorID) == nil { throw InvoiceError.missingField("Gläubiger-Identifikationsnummer (BT-90)") }
+        }
+        for item in invoice.items {
+            // BR-S-05: Kategorie S verlangt einen Satz über 0 %; Nullsatz und Steuerfreiheit haben ihre eigene Kategorie
+            if item.taxCategory == .standard, item.vatRate <= 0 {
+                throw InvoiceError.unsupported("Steuersatz 0 % in „\(item.name)“ (dafür die Kategorie „Steuerfrei“ oder „0 %“ wählen)")
+            }
+            // BR-E-10: Steuerfreie Positionen brauchen einen Befreiungsgrund
+            if item.taxCategory.needsExemptionReason, item.trimmedExemptionReason == nil {
+                throw InvoiceError.missingField("Befreiungsgrund (BT-120) für „\(item.name)“")
+            }
         }
         if profile == .xrechnung {
             // Zusätzliche Geschäftsregeln der XRechnung (BR-DE-*)

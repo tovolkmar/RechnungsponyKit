@@ -84,7 +84,10 @@ public struct EInvoiceReader {
         guard let issueDate = date(root.node("ExchangedDocument/IssueDateTime/DateTimeString")) else {
             throw EInvoiceReaderError.missing("das Rechnungsdatum")
         }
-        let notes = (root.node("ExchangedDocument")?.all("IncludedNote") ?? []).compactMap { $0.string("Content") }
+        let notes = (root.node("ExchangedDocument")?.all("IncludedNote") ?? [])
+            // Hinweise mit Betreffcode REG sind Registerangaben; sie stehen schon beim Verkäufer (BT-33)
+            .filter { $0.string("SubjectCode") != "REG" }
+            .compactMap { $0.string("Content") }
         let guideline = root.string("ExchangedDocumentContext/GuidelineSpecifiedDocumentContextParameter/ID") ?? ""
 
         guard let tx = root.child("SupplyChainTradeTransaction") else { throw EInvoiceReaderError.missing("die Rechnungsdaten") }
@@ -118,7 +121,9 @@ public struct EInvoiceReader {
                 unitLabel: Self.unitLabel(unit),
                 unitPrice: price,
                 vatRate: rate,
-                details: line.string("SpecifiedTradeProduct/Description")
+                details: line.string("SpecifiedTradeProduct/Description"),
+                periodStart: date(line.node("SpecifiedLineTradeSettlement/BillingSpecifiedPeriod/StartDateTime/DateTimeString")),
+                periodEnd: date(line.node("SpecifiedLineTradeSettlement/BillingSpecifiedPeriod/EndDateTime/DateTimeString"))
             )
             if let declared = decimal(line.string("SpecifiedLineTradeSettlement/SpecifiedTradeSettlementLineMonetarySummation/LineTotalAmount")),
                declared != item.lineTotal {
@@ -132,6 +137,14 @@ public struct EInvoiceReader {
             .first { $0.string("PayeePartyCreditorFinancialAccount/IBANID") != nil }
         let iban = means?.string("PayeePartyCreditorFinancialAccount/IBANID") ?? ""
         let terms = settlement.all("SpecifiedTradePaymentTerms")
+        // Lastschrift (BG-19): Konto des Käufers, Mandatsreferenz und Gläubiger-ID
+        let directDebit = settlement.all("SpecifiedTradeSettlementPaymentMeans")
+            .compactMap { $0.string("PayerPartyDebtorFinancialAccount/IBANID") }.first
+            .map {
+                DirectDebit(debtorIBAN: $0,
+                            mandateID: terms.compactMap { $0.string("DirectDebitMandateID") }.first ?? "",
+                            creditorID: settlement.string("CreditorReferenceID") ?? "")
+            }
         var dueDate = issueDate
         if let due = terms.compactMap({ date($0.node("DueDateDateTime/DateTimeString")) }).first {
             dueDate = due
@@ -171,6 +184,7 @@ public struct EInvoiceReader {
             dueDate: dueDate,
             seller: sellerParty,
             buyer: buyerParty,
+            directDebit: directDebit,
             buyerReference: agreement.string("BuyerReference"),
             iban: iban,
             bic: means?.string("PayeeSpecifiedCreditorFinancialInstitution/BICID"),

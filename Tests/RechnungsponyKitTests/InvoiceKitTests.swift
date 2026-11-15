@@ -46,6 +46,12 @@ final class InvoiceKitTests: XCTestCase {
         }
     }
 
+    func testPaymentMeansIsSEPACreditTransfer() throws {
+        let xml = try CIIWriter().xml(for: SampleInvoice.make(), profile: .zugferdEN16931)
+        let means = try XCTUnwrap(xml.range(of: "<ram:SpecifiedTradeSettlementPaymentMeans>"))
+        XCTAssertTrue(xml[means.upperBound...].drop(while: \.isWhitespace).hasPrefix("<ram:TypeCode>58</ram:TypeCode>"))
+    }
+
     func testCancellationWritesTypeCode381AndReference() throws {
         var invoice = SampleInvoice.make()
         XCTAssertFalse(invoice.isCancellation)

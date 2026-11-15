@@ -59,6 +59,14 @@ public struct InvoicePDFRenderer {
         text(ctx, invoice.buyer.name, x: left, top: 170, size: 11, bold: true)
         text(ctx, invoice.buyer.street, x: left, top: 185, size: 11)
         text(ctx, "\(invoice.buyer.postalCode) \(invoice.buyer.city)", x: left, top: 200, size: 11)
+        if let ship = invoice.shipTo?.orNil {
+            var top: CGFloat = 218
+            text(ctx, "Lieferadresse", x: left, top: top, size: 9, bold: true, color: gray)
+            for line in [ship.name, ship.street, "\(ship.postalCode) \(ship.city)"] where !line.trimmingCharacters(in: .whitespaces).isEmpty {
+                top += 12
+                text(ctx, line, x: left, top: top, size: 9, color: gray)
+            }
+        }
 
         // Titel und Eckdaten
         text(ctx, invoice.isCancellation ? "Gutschrift" : "Rechnung", x: left, top: 260, size: 20, bold: true)
@@ -101,7 +109,7 @@ public struct InvoicePDFRenderer {
             text(ctx, Format.germanQuantity(item.quantity), x: colQty, top: top, size: 10, align: .right)
             text(ctx, item.unitLabel, x: colUnit, top: top, size: 10)
             text(ctx, Format.germanAmount(item.unitPrice), x: colPrice, top: top, size: 10, align: .right)
-            text(ctx, "\(Format.germanPercent(item.vatRate)) %", x: colVat, top: top, size: 10, align: .right)
+            text(ctx, "\(Format.germanPercent(item.effectiveVATRate)) %", x: colVat, top: top, size: 10, align: .right)
             text(ctx, Format.germanAmount(item.lineTotal), x: colTotal, top: top, size: 10, align: .right)
             top += 16
         }
@@ -114,7 +122,7 @@ public struct InvoicePDFRenderer {
         text(ctx, Format.germanMoney(invoice.netTotal), x: right, top: top, size: 10, align: .right)
         top += 15
         for entry in invoice.vatBreakdown {
-            text(ctx, "Umsatzsteuer \(Format.germanPercent(entry.rate)) %", x: sumLabelX, top: top, size: 10)
+            text(ctx, entry.category == .exempt ? "Steuerfrei" : "Umsatzsteuer \(Format.germanPercent(entry.rate)) %", x: sumLabelX, top: top, size: 10)
             text(ctx, Format.germanMoney(entry.tax), x: right, top: top, size: 10, align: .right)
             top += 15
         }

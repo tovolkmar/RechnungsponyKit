@@ -47,6 +47,48 @@ public struct Party: Codable, Equatable, Sendable {
     }
 }
 
+/// Zahlung per SEPA-Lastschrift (BG-19) statt Überweisung: der Verkäufer zieht vom Konto des Käufers ein.
+public struct DirectDebit: Codable, Equatable, Sendable {
+    /// IBAN des Käufers, von der eingezogen wird (BT-91)
+    public var debtorIBAN: String
+    /// Mandatsreferenz (BT-89)
+    public var mandateID: String
+    /// Gläubiger-Identifikationsnummer des Verkäufers (BT-90)
+    public var creditorID: String
+
+    public init(debtorIBAN: String = "", mandateID: String = "", creditorID: String = "") {
+        self.debtorIBAN = debtorIBAN
+        self.mandateID = mandateID
+        self.creditorID = creditorID
+    }
+}
+
+/// Abweichende Lieferanschrift (BG-13). Nicht gesetzt (`nil`) heißt: geliefert wird an den Rechnungsempfänger.
+public struct DeliveryAddress: Codable, Equatable, Sendable {
+    public var name: String
+    public var street: String
+    public var postalCode: String
+    public var city: String
+    public var countryCode: String
+
+    public init(name: String = "", street: String = "", postalCode: String = "", city: String = "", countryCode: String = "DE") {
+        self.name = name
+        self.street = street
+        self.postalCode = postalCode
+        self.city = city
+        self.countryCode = countryCode
+    }
+
+    /// Eine Anschrift gilt erst als angegeben, wenn Straße, Postleitzahl oder Ort gefüllt sind. Ein bloßer Ländercode
+    /// (der Standardwert) oder ein Name allein reicht nicht.
+    public var isEmpty: Bool {
+        [street, postalCode, city].allSatisfy { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    /// `nil`, wenn keine Anschrift angegeben ist
+    public var orNil: DeliveryAddress? { isEmpty ? nil : self }
+}
+
 public struct LineItem: Codable, Equatable, Sendable {
     public var name: String
     public var quantity: Decimal
@@ -60,8 +102,18 @@ public struct LineItem: Codable, Equatable, Sendable {
     public var vatRate: Decimal
     /// Beschreibung der Position (BT-154), kann Zeilenumbrüche enthalten
     public var details: String?
+    /// Steuerkategorie (BT-151); gespeicherte Rechnungen ohne Angabe gelten als „S“
+    public var taxCategory: TaxCategory
+    /// Befreiungsgrund (BT-120) bei steuerfreien Positionen, z. B. „Steuerfrei nach § 4 Nr. 14 UStG“
+    public var exemptionReason: String?
+    /// Eigener Leistungszeitraum dieser Position (BG-26); ohne Angabe gilt der Zeitraum der Rechnung. Beide Daten
+    /// gehören zusammen, ein einzelnes zählt nicht (siehe `period`).
+    public var periodStart: Date?
+    public var periodEnd: Date?
 
-    public init(name: String, quantity: Decimal, unitCode: String, unitLabel: String, unitPrice: Decimal, vatRate: Decimal, details: String? = nil) {
+    public init(name: String, quantity: Decimal, unitCode: String, unitLabel: String, unitPrice: Decimal, vatRate: Decimal, details: String? = nil,
+                taxCategory: TaxCategory = .standard, exemptionReason: String? = nil,
+                periodStart: Date? = nil, periodEnd: Date? = nil) {
         self.name = name
         self.quantity = quantity
         self.unitCode = unitCode
@@ -69,12 +121,51 @@ public struct LineItem: Codable, Equatable, Sendable {
         self.unitPrice = unitPrice
         self.vatRate = vatRate
         self.details = details
+        self.taxCategory = taxCategory
+        self.exemptionReason = exemptionReason
+        self.periodStart = periodStart
+        self.periodEnd = periodEnd
+    }
+
+    /// Ältere gespeicherte Rechnungen kennen die Steuerkategorie noch nicht
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        quantity = try c.decode(Decimal.self, forKey: .quantity)
+        unitCode = try c.decode(String.self, forKey: .unitCode)
+        unitLabel = try c.decode(String.self, forKey: .unitLabel)
+        unitPrice = try c.decode(Decimal.self, forKey: .unitPrice)
+        vatRate = try c.decode(Decimal.self, forKey: .vatRate)
+        details = try c.decodeIfPresent(String.self, forKey: .details)
+        taxCategory = try c.decodeIfPresent(TaxCategory.self, forKey: .taxCategory) ?? .standard
+        exemptionReason = try c.decodeIfPresent(String.self, forKey: .exemptionReason)
+        periodStart = try c.decodeIfPresent(Date.self, forKey: .periodStart)
+        periodEnd = try c.decodeIfPresent(Date.self, forKey: .periodEnd)
+    }
+
+    /// Der eigene Leistungszeitraum der Position, `nil` wenn keiner (vollständig) angegeben ist
+    public var period: (start: Date, end: Date)? {
+        guard let periodStart, let periodEnd else { return nil }
+        return (periodStart, periodEnd)
+    }
+
+    /// Der Satz, der wirklich gilt: Nullsatz und steuerfreie Positionen haben immer 0 %, egal was in `vatRate` steht
+    public var effectiveVATRate: Decimal { taxCategory.hasRate ? vatRate : 0 }
+
+    /// Befreiungsgrund ohne Leerraum, `nil` wenn keiner da ist oder die Kategorie keinen braucht
+    public var trimmedExemptionReason: String? {
+        guard taxCategory.needsExemptionReason else { return nil }
+        let text = (exemptionReason ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
     }
 
     public var lineTotal: Decimal { (quantity * unitPrice).rounded2() }
 }
 
 public struct VATBreakdown: Sendable {
+    public let category: TaxCategory
+    /// Befreiungsgrund (BT-120), nur bei steuerfreien Positionen
+    public let exemptionReason: String?
     public let rate: Decimal
     public let basis: Decimal
     public let tax: Decimal
@@ -88,6 +179,10 @@ public struct Invoice: Codable, Equatable, Sendable {
     public var dueDate: Date
     public var seller: Party
     public var buyer: Party
+    /// Abweichende Lieferanschrift (BG-13); `nil` = Lieferung an den Käufer
+    public var shipTo: DeliveryAddress?
+    /// Zahlung per SEPA-Lastschrift; `nil` = Überweisung auf unser Konto
+    public var directDebit: DirectDebit?
     /// Leitweg-ID bei Rechnungen an Behörden (BT-10), sonst eine beliebige Referenz des Käufers
     public var buyerReference: String?
     public var iban: String
@@ -127,6 +222,8 @@ public struct Invoice: Codable, Equatable, Sendable {
         dueDate: Date,
         seller: Party,
         buyer: Party,
+        shipTo: DeliveryAddress? = nil,
+        directDebit: DirectDebit? = nil,
         buyerReference: String? = nil,
         iban: String,
         bic: String? = nil,
@@ -152,6 +249,8 @@ public struct Invoice: Codable, Equatable, Sendable {
         self.dueDate = dueDate
         self.seller = seller
         self.buyer = buyer
+        self.shipTo = shipTo?.orNil
+        self.directDebit = directDebit
         self.buyerReference = buyerReference
         self.iban = iban
         self.bic = bic
@@ -174,13 +273,28 @@ public struct Invoice: Codable, Equatable, Sendable {
         items.reduce(Decimal(0)) { $0 + $1.lineTotal }
     }
 
+    /// Steuerzusammenfassung (BG-23): je Kategorie, Satz und Befreiungsgrund eine Zeile, nach Satz sortiert
     public var vatBreakdown: [VATBreakdown] {
-        let rates = Set(items.map { $0.vatRate }).sorted()
-        return rates.map { rate in
-            let basis = items.filter { $0.vatRate == rate }.reduce(Decimal(0)) { $0 + $1.lineTotal }
-            let tax = (basis * rate / 100).rounded2()
-            return VATBreakdown(rate: rate, basis: basis, tax: tax)
+        struct Key: Hashable { var category: TaxCategory; var rate: Decimal; var reason: String? }
+        let keys = Set(items.map { Key(category: $0.taxCategory, rate: $0.effectiveVATRate, reason: $0.trimmedExemptionReason) })
+        let sorted = keys.sorted { lhs, rhs in
+            if lhs.rate != rhs.rate { return lhs.rate < rhs.rate }
+            if lhs.category != rhs.category { return lhs.category.rawValue < rhs.category.rawValue }
+            return (lhs.reason ?? "") < (rhs.reason ?? "")
         }
+        return sorted.map { key in
+            let basis = items
+                .filter { $0.taxCategory == key.category && $0.effectiveVATRate == key.rate && $0.trimmedExemptionReason == key.reason }
+                .reduce(Decimal(0)) { $0 + $1.lineTotal }
+            let tax = (basis * key.rate / 100).rounded2()
+            return VATBreakdown(category: key.category, exemptionReason: key.reason, rate: key.rate, basis: basis, tax: tax)
+        }
+    }
+
+    /// Hinweise zu Steuerbefreiungen, die auf der Rechnung stehen müssen (je Grund einmal)
+    public var exemptionNotes: [String] {
+        var seen = Set<String>()
+        return vatBreakdown.compactMap(\.exemptionReason).filter { seen.insert($0).inserted }
     }
 
     public var taxTotal: Decimal {

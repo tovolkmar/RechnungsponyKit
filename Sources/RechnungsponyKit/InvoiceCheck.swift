@@ -45,6 +45,15 @@ public enum InvoiceCheck {
             } else if !isValidIBAN(invoice.iban) {
                 error("Bankverbindung: Die IBAN ist ungültig (Prüfziffer stimmt nicht).")
             }
+            if let debit = invoice.directDebit {
+                if blank(debit.debtorIBAN) {
+                    error("Lastschrift: Die IBAN des Kunden fehlt.")
+                } else if !isValidIBAN(debit.debtorIBAN) {
+                    error("Lastschrift: Die IBAN des Kunden ist ungültig (Prüfziffer stimmt nicht).")
+                }
+                if blank(debit.mandateID) { error("Lastschrift: Die Mandatsreferenz fehlt.") }
+                if blank(debit.creditorID) { error("Lastschrift: Die Gläubiger-ID fehlt (in den Absenderdaten eintragen).") }
+            }
 
             let b = invoice.buyer
             if blank(b.name) { error("Kunde: Name fehlt.") }
@@ -61,6 +70,15 @@ public enum InvoiceCheck {
             if b.countryCode.uppercased() == "DE", !blank(b.postalCode), b.postalCode.count != 5 {
                 warn("Kunde: Die Postleitzahl hat keine 5 Stellen.")
             }
+
+            // BG-13: Der Ländercode der Lieferanschrift ist Pflicht (BT-80)
+            if let ship = invoice.shipTo?.orNil {
+                if ship.countryCode.trimmingCharacters(in: .whitespaces).count != 2 {
+                    error("Lieferadresse: Der Ländercode muss zwei Buchstaben haben, z. B. DE.")
+                }
+            } else if let ship = invoice.shipTo, !blank(ship.name) {
+                warn("Lieferadresse: Ohne Straße, PLZ oder Ort wird sie nicht in die Rechnung übernommen.")
+            }
         }
 
         // Positionen
@@ -71,11 +89,18 @@ public enum InvoiceCheck {
             if item.quantity == 0 { error("\(label): Die Menge ist 0.") }
             else if item.quantity < 0 { warn("\(label): Die Menge ist negativ.") }
             if item.unitPrice == 0 { warn("\(label): Der Preis ist 0.") }
-            // Die App schreibt Steuerkategorie „S“; die verlangt einen Satz über 0 %.
-            if item.vatRate <= 0 {
-                error("\(label): Ein Steuersatz von 0 % wird noch nicht unterstützt (steuerfreie Leistungen brauchen eine andere Steuerkategorie).")
-            } else if item.vatRate != 19 && item.vatRate != 7 {
-                warn("\(label): Ungewöhnlicher Steuersatz (\(item.vatRate) %).")
+            switch item.taxCategory {
+            case .standard:
+                // Kategorie „S“ verlangt einen Satz über 0 %
+                if item.vatRate <= 0 {
+                    error("\(label): Ein Steuersatz von 0 % braucht die Kategorie „Steuerfrei“ oder „0 %“.")
+                } else if item.vatRate != 19 && item.vatRate != 7 {
+                    warn("\(label): Ungewöhnlicher Steuersatz (\(item.vatRate) %).")
+                }
+            case .exempt:
+                if item.trimmedExemptionReason == nil { error("\(label): Der Befreiungsgrund für die Steuerfreiheit fehlt.") }
+            case .zeroRated:
+                break
             }
         }
         if !invoice.items.isEmpty {
@@ -89,6 +114,20 @@ public enum InvoiceCheck {
         let issued = calendar.startOfDay(for: invoice.issueDate)
         let due = calendar.startOfDay(for: invoice.dueDate)
         if end < start { error("Der Leistungszeitraum endet vor seinem Beginn.") }
+        for (index, item) in invoice.items.enumerated() {
+            let label = "Position \(index + 1)"
+            if (item.periodStart == nil) != (item.periodEnd == nil) {
+                error("\(label): Der Leistungszeitraum braucht Beginn und Ende.")
+            } else if let period = item.period {
+                let itemStart = calendar.startOfDay(for: period.start)
+                let itemEnd = calendar.startOfDay(for: period.end)
+                if itemEnd < itemStart {
+                    error("\(label): Der Leistungszeitraum endet vor seinem Beginn.")
+                } else if itemStart < start || itemEnd > end {
+                    warn("\(label): Der Leistungszeitraum liegt nicht innerhalb des Leistungszeitraums der Rechnung.")
+                }
+            }
+        }
         if due < issued { warn(isReceivedCredit ? "Das Fälligkeitsdatum liegt vor dem Datum der Gutschrift." : "Das Zahlungsziel liegt vor dem Rechnungsdatum.") }
         if !isReceivedCredit, issued > calendar.startOfDay(for: today) {
             warn("Das Rechnungsdatum liegt in der Zukunft.")
