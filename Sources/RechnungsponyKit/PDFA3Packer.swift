@@ -12,13 +12,13 @@ public enum PackError: Error, LocalizedError {
     }
 }
 
-/// Macht aus einem fertigen PDF ein ZUGFeRD-/Factur-X-PDF (PDF/A-3b mit eingebettetem XML).
+/// Macht aus einem fertigen PDF ein ZUGFeRD-/Factur-X-PDF (PDF/A-3u mit eingebettetem XML).
 ///
 /// Vorgehen: Das Original-PDF bleibt unverändert, am Ende wird ein "inkrementelles Update" angehängt
 /// (neue Objekte, neue Querverweistabelle, ersetzter Katalog). Das Original muss eine klassische
 /// Querverweistabelle haben (kein Xref-Stream, keine Object-Streams), wie sie Core Graphics erzeugt.
 ///
-/// Wichtig: Das Ergebnis ist nur dann PDF/A-3b-konform, wenn auch das Original-PDF es zulässt
+/// Wichtig: Das Ergebnis ist nur dann PDF/A-3u-konform, wenn auch das Original-PDF es zulässt
 /// (alle Schriften eingebettet, keine verbotenen Elemente). Das prüft veraPDF, nicht dieser Code.
 public struct PDFA3Packer {
     public init() {}
@@ -31,6 +31,8 @@ public struct PDFA3Packer {
         public var date: Date
         public var xmlFileName: String
         public var conformanceLevel: String
+        /// Stufe von PDF/A-3 in `pdfaid:conformance`: "U" (Unicode-Zuordnung für allen Text, geprüft mit veraPDF 3u) oder "B"
+        public var pdfaConformance: String
         public var attachmentDescription: String
         /// ICC-Profil für DeviceRGB (sRGB), wird als OutputIntent eingebettet
         public var iccProfile: Data
@@ -44,6 +46,7 @@ public struct PDFA3Packer {
             date: Date = Date.now,
             xmlFileName: String = "factur-x.xml",
             conformanceLevel: String = "EN 16931",
+            pdfaConformance: String = "U",
             attachmentDescription: String = "Factur-X Invoice",
             iccProfile: Data,
             iccName: String = "sRGB IEC61966-2.1"
@@ -55,6 +58,7 @@ public struct PDFA3Packer {
             self.date = date
             self.xmlFileName = xmlFileName
             self.conformanceLevel = conformanceLevel
+            self.pdfaConformance = pdfaConformance
             self.attachmentDescription = attachmentDescription
             self.iccProfile = iccProfile
             self.iccName = iccName
@@ -150,7 +154,8 @@ public struct PDFA3Packer {
             creatorTool: options.creatorTool,
             date: options.date,
             attachmentFileName: options.xmlFileName,
-            conformanceLevel: options.conformanceLevel
+            conformanceLevel: options.conformanceLevel,
+            pdfaConformance: options.pdfaConformance
         )
 
         newOffsets[iccID] = out.count

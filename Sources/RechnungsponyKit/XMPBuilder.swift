@@ -1,6 +1,6 @@
 import Foundation
 
-/// Baut das XMP-Metadatenpaket für PDF/A-3b mit der ZUGFeRD/Factur-X-Erweiterung.
+/// Baut das XMP-Metadatenpaket für PDF/A-3u mit der ZUGFeRD/Factur-X-Erweiterung.
 enum XMPBuilder {
     static func packet(
         title: String,
@@ -9,7 +9,8 @@ enum XMPBuilder {
         creatorTool: String,
         date: Date,
         attachmentFileName: String,
-        conformanceLevel: String
+        conformanceLevel: String,
+        pdfaConformance: String = "U"
     ) -> Data {
         let iso = DateFmt.format(date, "yyyy-MM-dd'T'HH:mm:ss", timeZone: DateFmt.utc) + "+00:00"
         let t = XML.escape(title)
@@ -25,7 +26,7 @@ enum XMPBuilder {
           <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
             <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">
               <pdfaid:part>3</pdfaid:part>
-              <pdfaid:conformance>B</pdfaid:conformance>
+              <pdfaid:conformance>\(XML.escape(pdfaConformance))</pdfaid:conformance>
             </rdf:Description>
             <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
               <dc:title><rdf:Alt><rdf:li xml:lang="x-default">\(t)</rdf:li></rdf:Alt></dc:title>

@@ -119,6 +119,7 @@ final class InvoiceKitTests: XCTestCase {
         XCTAssertTrue(text.contains("/Subtype /text#2Fxml"))
         XCTAssertTrue(text.contains("/OutputIntents"))
         XCTAssertTrue(text.contains("<pdfaid:part>3</pdfaid:part>"))
+        XCTAssertTrue(text.contains("<pdfaid:conformance>U</pdfaid:conformance>"))
         XCTAssertTrue(text.contains("/Pages 2 0 R"), "Alte Katalogeinträge müssen erhalten bleiben")
         XCTAssertEqual(text.components(separatedBy: "%%EOF").count - 1, 2)
 
