@@ -63,6 +63,12 @@ public struct CIIWriter {
 
         // Kontext: Profil
         x.open("rsm:ExchangedDocumentContext")
+        // BT-23 Geschäftsprozess: XRechnung (PEPPOL-EN16931-R001) verlangt ihn, er steht vor der Guideline (CII D16B)
+        if profile == .xrechnung {
+            x.open("ram:BusinessProcessSpecifiedDocumentContextParameter")
+            x.leaf("ram:ID", "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0")
+            x.close("ram:BusinessProcessSpecifiedDocumentContextParameter")
+        }
         x.open("ram:GuidelineSpecifiedDocumentContextParameter")
         x.leaf("ram:ID", profile.guidelineID)
         x.close("ram:GuidelineSpecifiedDocumentContextParameter")
