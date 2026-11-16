@@ -336,7 +336,7 @@ public enum SampleInvoice {
             dueDate: DateFmt.make(2026, 10, 22),
             seller: seller,
             buyer: buyer,
-            buyerReference: "04011000-1234512345-35",
+            buyerReference: "04011000-1234512345-06",
             iban: "DE02120300000000202051",
             bic: "BYLADEM1001",
             items: items,

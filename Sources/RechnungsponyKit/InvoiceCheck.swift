@@ -71,6 +71,15 @@ public enum InvoiceCheck {
                 warn("Kunde: Die Postleitzahl hat keine 5 Stellen.")
             }
 
+            // XRechnung (Käuferreferenz ist eine Leitweg-ID): zusätzliche Pflichtangaben nach den BR-DE-Regeln
+            if invoice.preferredProfile == .xrechnung {
+                if !LeitwegID.isValid(invoice.buyerReference ?? "") {
+                    error("Leitweg-ID: Die Prüfziffer stimmt nicht, vermutlich ein Tippfehler.")
+                }
+                if blank(invoice.seller.contactName) { error("XRechnung: Im Absenderprofil fehlt der Ansprechpartner (BG-6).") }
+                if blank(invoice.seller.contactPhone) { error("XRechnung: Im Absenderprofil fehlt die Telefonnummer (BT-42).") }
+            }
+
             // BG-13: Der Ländercode der Lieferanschrift ist Pflicht (BT-80)
             if let ship = invoice.shipTo?.orNil {
                 if ship.countryCode.trimmingCharacters(in: .whitespaces).count != 2 {
