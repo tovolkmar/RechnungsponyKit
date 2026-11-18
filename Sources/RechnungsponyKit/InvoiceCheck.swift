@@ -1,4 +1,5 @@
 import Foundation
+import KontorCore
 
 /// Ein Befund der Prüfung vor dem Ausstellen.
 public struct InvoiceIssue: Equatable, Identifiable, Sendable {
@@ -33,7 +34,7 @@ public enum InvoiceCheck {
             let s = invoice.seller
             if blank(s.name) { error("Absender: Name fehlt.") }
             if blank(s.street) || blank(s.postalCode) || blank(s.city) { error("Absender: Die Anschrift ist unvollständig.") }
-            if !looksLikeEmail(s.email) { error("Absender: Es fehlt eine gültige E-Mail-Adresse (wird als elektronische Adresse benötigt).") }
+            if !EmailCheck.looksValid(s.email) { error("Absender: Es fehlt eine gültige E-Mail-Adresse (wird als elektronische Adresse benötigt).") }
             if blank(s.vatID) && blank(s.taxNumber) { error("Absender: USt-IdNr. oder Steuernummer fehlt.") }
             switch VATIDCheck.check(s.vatID ?? "") {
             case .invalidFormat: error("Absender: Die USt-IdNr. hat nicht das Format DE plus 9 Ziffern.")
@@ -59,7 +60,7 @@ public enum InvoiceCheck {
             if blank(b.name) { error("Kunde: Name fehlt.") }
             if blank(b.street) || blank(b.postalCode) || blank(b.city) { error("Kunde: Die Anschrift ist unvollständig.") }
             if b.countryCode.trimmingCharacters(in: .whitespaces).count != 2 { error("Kunde: Der Ländercode muss zwei Buchstaben haben, z. B. DE.") }
-            if !looksLikeEmail(b.electronicAddress ?? "") && !looksLikeEmail(b.email) {
+            if !EmailCheck.looksValid(b.electronicAddress ?? "") && !EmailCheck.looksValid(b.email) {
                 error("Kunde: Es fehlt eine gültige E-Mail-Adresse (wird als elektronische Adresse benötigt).")
             }
             switch VATIDCheck.check(b.vatID ?? "") {
@@ -150,28 +151,8 @@ public enum InvoiceCheck {
         (s ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    static func looksLikeEmail(_ s: String) -> Bool {
-        let t = s.trimmingCharacters(in: .whitespaces)
-        guard let at = t.firstIndex(of: "@"), at != t.startIndex else { return false }
-        let domain = t[t.index(after: at)...]
-        return domain.contains(".") && !domain.hasSuffix(".") && !t.contains(" ")
-    }
-
-    /// IBAN-Prüfziffer nach ISO 13616 (Modulo 97).
+    /// Aufbau und Prüfziffer einer IBAN; die Prüfung selbst steht in `KontorCore` (`IBANCheck`).
     static func isValidIBAN(_ raw: String) -> Bool {
-        let iban = raw.filter { !$0.isWhitespace }.uppercased()
-        guard (15...34).contains(iban.count), iban.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else { return false }
-        if iban.hasPrefix("DE"), iban.count != 22 { return false }
-        let rearranged = iban.dropFirst(4) + iban.prefix(4)
-        var remainder = 0
-        for ch in rearranged {
-            if let digit = ch.wholeNumberValue, ch.isNumber {
-                remainder = (remainder * 10 + digit) % 97
-            } else if let ascii = ch.asciiValue {
-                let value = Int(ascii) - 55 // A = 10 … Z = 35
-                remainder = (remainder * 100 + value) % 97
-            }
-        }
-        return remainder == 1
+        IBANCheck.isValid(raw)
     }
 }
