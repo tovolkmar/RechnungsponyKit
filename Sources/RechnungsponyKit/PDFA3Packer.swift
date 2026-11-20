@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 public enum PackError: Error, LocalizedError {
     case malformed(String)
@@ -36,6 +37,11 @@ public struct PDFA3Packer {
         public var attachmentDescription: String
         /// ICC-Profil für DeviceRGB (sRGB), wird als OutputIntent eingebettet
         public var iccProfile: Data
+
+        /// Das sRGB-Profil des Systems; Vorgabe für `iccProfile`
+        public static var systemSRGBProfile: Data {
+            (CGColorSpace(name: CGColorSpace.sRGB)?.copyICCData() as Data?) ?? Data()
+        }
         public var iccName: String
 
         public init(
@@ -48,7 +54,7 @@ public struct PDFA3Packer {
             conformanceLevel: String = "EN 16931",
             pdfaConformance: String = "U",
             attachmentDescription: String = "Factur-X Invoice",
-            iccProfile: Data,
+            iccProfile: Data? = nil,
             iccName: String = "sRGB IEC61966-2.1"
         ) {
             self.title = title
@@ -60,7 +66,7 @@ public struct PDFA3Packer {
             self.conformanceLevel = conformanceLevel
             self.pdfaConformance = pdfaConformance
             self.attachmentDescription = attachmentDescription
-            self.iccProfile = iccProfile
+            self.iccProfile = iccProfile ?? Options.systemSRGBProfile
             self.iccName = iccName
         }
     }

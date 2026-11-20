@@ -149,3 +149,12 @@ final class RechnungsponyKitTests: XCTestCase {
         XCTAssertEqual(packer.pdfString("Ä"), "<FEFF00C4>")
     }
 }
+
+final class PDFA3OptionsTests: XCTestCase {
+    func testDefaultICCProfileIsSystemSRGB() {
+        let options = PDFA3Packer.Options(title: "T", author: "A")
+        XCTAssertGreaterThan(options.iccProfile.count, 100)
+        XCTAssertEqual(options.iccProfile, PDFA3Packer.Options.systemSRGBProfile)
+        XCTAssertEqual(PDFA3Packer.Options(title: "T", author: "A", iccProfile: Data([1, 2])).iccProfile, Data([1, 2]))
+    }
+}
