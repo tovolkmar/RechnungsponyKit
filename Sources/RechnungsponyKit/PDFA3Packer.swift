@@ -41,8 +41,8 @@ public struct PDFA3Packer {
         public init(
             title: String,
             author: String,
-            producer: String = "InvoiceKit Spike",
-            creatorTool: String = "InvoiceKit Spike",
+            producer: String = "RechnungsponyKit",
+            creatorTool: String = "RechnungsponyKit",
             date: Date = Date.now,
             xmlFileName: String = "factur-x.xml",
             conformanceLevel: String = "EN 16931",

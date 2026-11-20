@@ -1,5 +1,4 @@
 import Foundation
-import KontorCore
 
 /// Ein Befund der Prüfung vor dem Ausstellen.
 public struct InvoiceIssue: Equatable, Identifiable, Sendable {
@@ -151,7 +150,7 @@ public enum InvoiceCheck {
         (s ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// Aufbau und Prüfziffer einer IBAN; die Prüfung selbst steht in `KontorCore` (`IBANCheck`).
+    /// Aufbau und Prüfziffer einer IBAN.
     static func isValidIBAN(_ raw: String) -> Bool {
         IBANCheck.isValid(raw)
     }

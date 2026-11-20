@@ -1,6 +1,6 @@
 import XCTest
 import Foundation
-@testable import InvoiceKit
+@testable import RechnungsponyKit
 
 final class DeliveryAddressTests: XCTestCase {
     private func xml(_ shipTo: DeliveryAddress?) throws -> String {

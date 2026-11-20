@@ -1,6 +1,6 @@
 import XCTest
 import Foundation
-@testable import InvoiceKit
+@testable import RechnungsponyKit
 
 final class LinePeriodTests: XCTestCase {
     private func invoice(_ start: Date?, _ end: Date?) -> Invoice {
@@ -57,7 +57,7 @@ final class LinePeriodTests: XCTestCase {
     }
 
     func testPDFRendersWithLinePeriod() throws {
-        XCTAssertGreaterThan(try TobwareLayoutRenderer(logoData: nil, signatureData: nil).render(invoice(DateFmt.make(2026, 7, 1), DateFmt.make(2026, 7, 31))).count, 1000)
+        XCTAssertGreaterThan(try InvoicePDFRenderer().render(invoice(DateFmt.make(2026, 7, 1), DateFmt.make(2026, 7, 31))).count, 1000)
     }
 
     // MARK: Hinweis mit Betreffcode REG

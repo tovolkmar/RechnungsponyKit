@@ -1,6 +1,6 @@
 import XCTest
 import Foundation
-@testable import InvoiceKit
+@testable import RechnungsponyKit
 
 final class DirectDebitTests: XCTestCase {
     private let debit = DirectDebit(debtorIBAN: "DE89 3704 0044 0532 0130 00", mandateID: "MANDAT-1", creditorID: "DE98ZZZ09999999999")

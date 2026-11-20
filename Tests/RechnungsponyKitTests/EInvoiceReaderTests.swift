@@ -1,5 +1,5 @@
 import XCTest
-@testable import InvoiceKit
+@testable import RechnungsponyKit
 
 final class EInvoiceReaderTests: XCTestCase {
     func testRoundTripOfOwnXML() throws {

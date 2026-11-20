@@ -1,6 +1,6 @@
 import XCTest
 import Foundation
-@testable import InvoiceKit
+@testable import RechnungsponyKit
 
 final class TaxCategoryTests: XCTestCase {
     private func item(_ name: String, price: String, rate: String = "19", category: TaxCategory = .standard,

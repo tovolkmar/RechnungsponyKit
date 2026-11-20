@@ -27,7 +27,7 @@ public struct InvoicePDFRenderer {
         let info: [CFString: Any] = [
             kCGPDFContextTitle: "\(invoice.isCancellation ? "Gutschrift" : "Rechnung") \(invoice.number)",
             kCGPDFContextAuthor: invoice.seller.name,
-            kCGPDFContextCreator: "InvoiceKit Spike"
+            kCGPDFContextCreator: "RechnungsponyKit"
         ]
         guard let ctx = CGContext(consumer: consumer, mediaBox: &mediaBox, info as CFDictionary) else {
             throw RenderError.contextFailed

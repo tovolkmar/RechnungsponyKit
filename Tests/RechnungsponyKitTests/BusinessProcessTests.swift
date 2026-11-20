@@ -1,6 +1,6 @@
 import XCTest
 import Foundation
-@testable import InvoiceKit
+@testable import RechnungsponyKit
 
 final class BusinessProcessTests: XCTestCase {
     private let process = "<ram:BusinessProcessSpecifiedDocumentContextParameter>"

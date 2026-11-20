@@ -1,8 +1,8 @@
 import XCTest
 import Foundation
-@testable import InvoiceKit
+@testable import RechnungsponyKit
 
-/// Die Leitweg-ID-Prüfung selbst steht in `KontorCore` (`LeitwegID`); hier geht es um ihre Wirkung auf Profil und Rechnungsprüfung.
+/// Die Leitweg-ID-Prüfung selbst steht in `LeitwegID`; hier geht es um ihre Wirkung auf Profil und Rechnungsprüfung.
 final class XRechnungProfileTests: XCTestCase {
     func testPreferredProfileFollowsTheBuyerReference() {
         var invoice = SampleInvoice.make()

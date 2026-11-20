@@ -3,9 +3,9 @@ import Foundation
 #if canImport(FoundationXML)
 import FoundationXML
 #endif
-@testable import InvoiceKit
+@testable import RechnungsponyKit
 
-final class InvoiceKitTests: XCTestCase {
+final class RechnungsponyKitTests: XCTestCase {
 
     // MARK: - Beträge
 
