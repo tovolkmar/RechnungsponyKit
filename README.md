@@ -26,11 +26,14 @@ Nicht unterstützt: Reverse Charge, innergemeinschaftliche Lieferung und Drittla
 ## Beispiel
 
 ```swift
+import CoreGraphics
 import RechnungsponyKit
 
 let xml = try CIIWriter().xml(for: invoice, profile: .zugferdEN16931)
 
-// PDF/A-3: eigenes PDF plus XML
+// PDF/A-3: eigenes PDF plus XML; PDF/A verlangt ein eingebettetes ICC-Profil (hier sRGB vom System)
+let icc = CGColorSpace(name: CGColorSpace.sRGB)!.copyICCData()! as Data
+let options = PDFA3Packer.Options(title: "Rechnung", author: "Muster GmbH", iccProfile: icc)
 let pdfA3 = try PDFA3Packer().pack(pdf: pdfData, xml: Data(xml.utf8), options: options)
 
 // Lesen
