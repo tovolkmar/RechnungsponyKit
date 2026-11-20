@@ -25,11 +25,36 @@ Nicht unterstützt: Reverse Charge, innergemeinschaftliche Lieferung und Drittla
 
 ## Beispiel
 
+### XML aus einzelnen Angaben erzeugen
+
+`Invoice` ist ein Werttyp. Jede `with…`-Methode liefert eine geänderte Kopie zurück, so setzt du Absender, Empfänger, Positionen und Zahlungsangaben nacheinander und bekommst am Ende das XML:
+
 ```swift
 import RechnungsponyKit
 
-let xml = try CIIWriter().xml(for: invoice, profile: .zugferdEN16931)
+let seller = Party(name: "Muster GmbH", street: "Beispielweg 1", postalCode: "80331", city: "München",
+                   email: "rechnung@muster.example", vatID: "DE123456789")
+let buyer = Party(name: "Kunde AG", street: "Hauptstraße 2", postalCode: "10115", city: "Berlin",
+                  email: "buchhaltung@kunde.example")
 
+let xml = try Invoice(number: "RE-2026-0001", issueDate: .now)
+    .withSeller(seller)
+    .withBuyer(buyer)
+    .withServicePeriod(from: start, to: end)
+    .addingLine(name: "Beratung", quantity: 8, unit: .hour, unitPrice: 95, vatRate: 19)
+    .addingLine(name: "Reisekosten", quantity: 1, unit: .lumpSum, unitPrice: 80)
+    .withBankAccount(iban: "DE02 1203 0000 0000 2020 51", bic: "BYLADEM1001")
+    .withPaymentTerms("Zahlbar innerhalb von 14 Tagen", dueInDays: 14)
+    .xml()   // Profil automatisch: XRechnung bei Leitweg-ID als Käuferreferenz, sonst ZUGFeRD EN 16931
+```
+
+`xml()` prüft die Rechnung vorher (`InvoiceCheck`) und wirft bei Fehlern eine `InvoiceValidationError`, deren `errors` sagen, was fehlt (zum Beispiel Anschrift, E-Mail, IBAN). Hinweise (Warnungen) liefert `invoice.issues()`. Mit `xml(validate: false)` überspringst du die Prüfung, mit `xml(profile: .xrechnung)` wählst du das Profil selbst.
+
+Weitere Setter: `withShipTo`, `withBuyerReference`, `withDirectDebit`, `withReferences(buyerOrder:sellerOrder:contract:)`, `withProject`, `withNotes`, `withCurrency`, `withDueDate`, `withLines`, `cancelling(number:issuedOn:)` für Stornorechnungen. Steuerfreie Positionen: `addingLine(…, vatRate: 0, taxCategory: .exempt, exemptionReason: "…")`. Summen, Steuerzusammenfassung und Rundung berechnet das Paket selbst.
+
+### ZUGFeRD-PDF und Lesen
+
+```swift
 // PDF/A-3: eigenes PDF plus XML (als ICC-Profil nimmt das Paket sRGB vom System, abweichend per `iccProfile:`)
 let options = PDFA3Packer.Options(title: "Rechnung", author: "Muster GmbH")
 let pdfA3 = try PDFA3Packer().pack(pdf: pdfData, xml: Data(xml.utf8), options: options)
